@@ -1,0 +1,42 @@
+{
+	"name": "nano-auth",
+	"version": "0.0.1",
+	"type": "module",
+	"description": "",
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"repository": "infinityfx-llc/nano-auth",
+	"author": "InfinityFX <contact@infinity-fx.com> (https://infinityfx.dev)",
+	"license": "GPL-3.0",
+	"bugs": "https://github.com/infinityfx-llc/nano-auth/issues",
+	"homepage": "https://github.com/infinityfx-llc/nano-auth",
+	"funding": "https://ko-fi.com/infinityfx",
+	"keywords": [],
+	"scripts": {
+		"build": "rollup -c --environment NODE_ENV:production",
+		"watch": "rollup -c -w"
+	},
+	"dependencies": {
+		"tslib": "^2.8.1",
+		"jose": "^6.1.0"
+	},
+	"peerDependencies": {
+		"react": ">=19.0.0",
+		"react-dom": ">=19.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24.5.2",
+		"@rollup/plugin-commonjs": "^28.0.6",
+		"@rollup/plugin-node-resolve": "^16.0.1",
+		"@rollup/plugin-terser": "^0.4.4",
+		"@rollup/plugin-typescript": "^12.1.4",
+		"@types/react": "^19.1.13",
+		"@types/react-dom": "^19.1.9",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1",
+		"rollup": "^4.52.2",
+		"rollup-plugin-delete": "^3.0.1",
+		"typescript": "^5.9.2"
+	},
+	"sideEffects": false
+}
