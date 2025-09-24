@@ -84,7 +84,7 @@ export const supportedOAuthProviders = {
             const { id, username, email, verified } = await req('https://discord.com/api/users/@me');
 
             return {
-                id,
+                id: `discord-${id}`,
                 fullName: username,
                 email: email,
                 verified
@@ -103,10 +103,10 @@ export const supportedOAuthProviders = {
             const { email = '', verified = false } = emails.find(({ primary }: any) => primary) || {};
 
             return {
-                id,
+                id: `github-${id}`,
                 fullName: name,
                 email,
-                verified
+                verified,
             };
         }
     ),
@@ -118,10 +118,25 @@ export const supportedOAuthProviders = {
             const { sub, name, email, email_verified } = await req('https://www.googleapis.com/oauth2/v3/userinfo');
 
             return {
-                id: sub,
+                id: `google-${sub}`,
                 fullName: name,
                 email,
                 verified: email_verified
+            };
+        }
+    ),
+    microsoft: createOAuthProvider(
+        'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+        'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        ['openid', 'profile', 'email'],
+        async (req) => {
+            const { sub, name, email } = await req('https://graph.microsoft.com/oidc/userinfo');
+
+            return {
+                id: `microsoft-${sub}`,
+                fullName: name,
+                email,
+                verified: true
             };
         }
     )

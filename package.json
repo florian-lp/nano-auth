@@ -5,6 +5,13 @@
 	"description": "",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
+	"types": "dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
 	"repository": "infinityfx-llc/nano-auth",
 	"author": "InfinityFX <contact@infinity-fx.com> (https://infinityfx.dev)",
 	"license": "GPL-3.0",

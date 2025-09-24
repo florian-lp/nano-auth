@@ -1,32 +1,38 @@
 import { jwtVerify } from "jose";
 import { createAuthEndpoint } from "./endpoint";
-import { OAuthClient, OAuthClientConfig, supportedOAuthProviders, SupportedOAuthProviders } from "./oauth";
+import { OAuthClient, OAuthClientConfig, OAuthUser, supportedOAuthProviders, SupportedOAuthProviders } from "./oauth";
 import crypto from 'crypto';
 import { cache } from "react";
 import { cookies } from 'next/headers';
 import { redirect } from "next/navigation";
 import { issueAccessToken } from "./lib";
 
-type UserValue = 'string' | 'boolean' | 'number' | 'null';
-
-export type UserSchema = {
-    [key: string]: UserValue | [UserValue, UserValue];
-};
-
-export const defaultUserSchema: UserSchema = {
-    id: 'string',
-    email: 'string'
-}
-
-export type AuthContext<P extends SupportedOAuthProviders, S extends UserSchema = typeof defaultUserSchema> = {
+export type AuthContext<P extends SupportedOAuthProviders, User extends {}> = {
     secretkey: Uint8Array<ArrayBuffer>;
+    endpointUri: string;
     oAuthClients: {
         [key in P]: OAuthClient;
     };
-    userSchema: S;
+    retrieveUser: (id: string) => Promise<{
+        user: User | null,
+        error?: string;
+    }>;
+    createUser: (oAuthUser: OAuthUser) => Promise<User>;
+    dev: {
+        enabled: boolean;
+        user: User;
+    } | {
+        enabled: false;
+        user: null;
+    };
 };
 
-export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<T>, client: T, redirectTo = '/') {
+export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<T, any>, client: T, redirectTo: string) {
+    if (ctx.dev.enabled) {
+        const url = new URL(ctx.endpointUri);
+        return redirect(url.pathname);
+    }
+
     const { set } = await cookies();
     const state = `${Buffer.from(`${client}.${redirectTo}`, 'utf8').toString('hex')}.${crypto.randomBytes(16).toString('hex')}`;
 
@@ -44,7 +50,7 @@ export async function signOut(redirectTo = '/') {
     redirect(redirectTo);
 }
 
-export async function getUser(ctx: AuthContext<any>) {
+export async function getUser<User extends {}>(ctx: AuthContext<any, User>) {
     const { get } = await cookies();
     const accessToken = get('nano-access-token')?.value;
     if (!accessToken) return null;
@@ -52,48 +58,67 @@ export async function getUser(ctx: AuthContext<any>) {
     try {
         const { payload } = await jwtVerify(accessToken, ctx.secretkey);
 
-        return payload as typeof ctx.userSchema;
+        return payload as User;
     } catch {
         return null;
     }
 }
 
-export async function refreshUser() {
-    const user = await getUser();
+export async function revalidate<User extends {}>(ctx: AuthContext<any, User>) {
+    const user = await getUser(ctx);
 
-    await issueAccessToken();
+    if (user) {
+        await issueAccessToken(ctx, user);
+    } else {
+        const { delete: del } = await cookies();
+
+        del('nano-access-token');
+    }
 
     return user;
 }
 
-export function createAuthInterface<P extends SupportedOAuthProviders, S extends UserSchema>({ secretKey, redirectUri, errorUri, providers, userSchema }: {
+export function createAuthInterface<P extends SupportedOAuthProviders, User extends {}>({ secretKey, endpointUri, errorUri, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
     secretKey: string;
-    redirectUri: string;
+    endpointUri: string;
     errorUri: string;
     providers: {
         [key in P]: Omit<OAuthClientConfig, 'redirectUri'>;
     };
-    userSchema?: S;
-    retrieveUser: any;
-    createUser: any;
+    retrieveUser: (id: string) => Promise<{
+        user: User | null;
+        error?: string;
+    }>;
+    createUser: (oAuthUser: OAuthUser) => Promise<User>;
+    dev?: {
+        enabled: boolean;
+        user: User;
+    } | {
+        enabled: false;
+        user: null;
+    };
 }) {
-    const ctx: AuthContext<P, S> = {
-        oAuthClients: {},
+    const ctx: AuthContext<P, User> = {
         secretkey: new TextEncoder().encode(secretKey),
-        userSchema: userSchema || defaultUserSchema
+        endpointUri,
+        oAuthClients: {} as any,
+        retrieveUser,
+        createUser,
+        dev
     };
 
     for (const provider in providers) {
-        ctx.oAuthClients[provider] = supportedOAuthProviders[provider as T]({
-            ...providers[provider as T],
-            redirectUri
+        ctx.oAuthClients[provider] = supportedOAuthProviders[provider as P]({
+            ...providers[provider as P],
+            redirectUri: endpointUri
         });
     }
 
     return {
         signOut,
-        signInWith: signInWith.bind({}, ctx),
-        getUser: cache(getUser.bind({}, ctx)),
+        revalidate,
+        getUser: cache(() => getUser(ctx)),
+        signInWith: (client: P, redirectTo = '/') => signInWith(ctx, client, redirectTo),
         authEndpoint: createAuthEndpoint(ctx, errorUri)
     };
 }

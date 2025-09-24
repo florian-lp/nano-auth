@@ -2,7 +2,7 @@ import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { AuthContext } from "./server";
 
-export async function issueAccessToken(ctx: AuthContext<any, any>, user: any) {
+export async function issueAccessToken<User extends {}>(ctx: AuthContext<any, User>, user: User) {
     const { set } = await cookies();
 
     const accessToken = await new SignJWT(user)
@@ -11,24 +11,9 @@ export async function issueAccessToken(ctx: AuthContext<any, any>, user: any) {
         .setExpirationTime('7d')
         .sign(ctx.secretkey);
 
-    set('access-token', accessToken, {
+    set('nano-access-token', accessToken, {
         httpOnly: true,
         secure: true,
         maxAge: 604800
     });
-}
-
-// todo
-export function sanitizeUserObject(ctx: AuthContext<any>, user: any) {
-    const sanitized: any = {};
-
-    for (const key in ctx.userSchema) {
-        const schemaValue = ctx.userSchema[key];
-        const values: string[] = Array.isArray(schemaValue) ? schemaValue : [schemaValue];
-
-        const value = user[key];
-        if (values.includes(value === null ? 'null' : typeof value)) sanitized[key] = value;
-    }
-
-    return sanitized as typeof ctx.userSchema;
 }
