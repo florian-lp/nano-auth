@@ -27,14 +27,16 @@ export type AuthContext<P extends SupportedOAuthProviders, User extends {}> = {
     };
 };
 
-export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<T, any>, client: T, redirectTo: string) {
+export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<T, any>, client: T, { redirectTo = '/', persist = true }: {
+    redirectTo?: string;
+    persist?: boolean;
+} = {}) {
     if (ctx.dev.enabled) {
-        const url = new URL(ctx.endpointUri);
-        return redirect(url.pathname);
+        return redirect(ctx.endpointUri.replace(/^(https?:\/\/)?.+?(\/)/, '/'));
     }
 
     const { set } = await cookies();
-    const state = `${Buffer.from(`${client}.${redirectTo}`, 'utf8').toString('hex')}.${crypto.randomBytes(16).toString('hex')}`;
+    const state = `${Buffer.from(`${client}:${persist}:${redirectTo}`, 'utf8').toString('hex')}.${crypto.randomBytes(16).toString('hex')}`;
 
     set('nano-state', state, {
         httpOnly: true
@@ -118,7 +120,10 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         signOut,
         revalidate,
         getUser: cache(() => getUser(ctx)),
-        signInWith: (client: P, redirectTo = '/') => signInWith(ctx, client, redirectTo),
+        signInWith: (client: P, options?: {
+            persist?: boolean;
+            redirectTo?: string;
+        }) => signInWith(ctx, client, options),
         authEndpoint: createAuthEndpoint(ctx, errorUri)
     };
 }

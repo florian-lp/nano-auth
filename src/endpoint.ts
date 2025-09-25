@@ -21,7 +21,7 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
 
             if (!code || state !== stateFromCookie) throw 'OAuth state mismatch';
 
-            const [client, redirectTo] = Buffer.from(state.split('.')[0], 'hex').toString('utf8').split(/\./);
+            const [client, persist, redirectTo] = Buffer.from(state.split('.')[0], 'hex').toString('utf8').split(/:/);
             const { authenticate, getUser } = ctx.oAuthClients[client];
             const { access_token } = await authenticate(code);
             if (!access_token) throw 'Could not authenticate oAuth user';
@@ -35,7 +35,7 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
             if (!user) {
                 await ctx.createUser(oAuthUser);
             } else {
-                await issueAccessToken(ctx, user);
+                await issueAccessToken(ctx, user, persist === 'true');
             }
 
             return Response.redirect(new URL(redirectTo, req.url));
