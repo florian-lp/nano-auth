@@ -1,6 +1,6 @@
 {
 	"name": "nano-auth",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"type": "module",
 	"description": "",
 	"main": "dist/index.js",
@@ -18,7 +18,7 @@
 	},
 	"typesVersions": {
 		"*": {
-			"hooks": ["./dist/types/client.d.ts"]
+			"client": ["./dist/types/client.d.ts"]
 		}
 	},
 	"repository": "infinityfx-llc/nano-auth",
