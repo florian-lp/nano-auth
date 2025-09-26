@@ -5,7 +5,7 @@ import { issueAccessToken } from "./lib";
 export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string) {
 
     return async (req: Request) => {
-        const { get } = await cookies();
+        const { get, set } = await cookies();
         const stateFromCookie = get('nano-state')?.value;
 
         const { searchParams } = new URL(req.url);
@@ -37,6 +37,10 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
             } else {
                 await issueAccessToken(ctx, user, persist === 'true');
             }
+
+            set('nano-last-used', client, {
+                maxAge: 15552000
+            });
 
             return Response.redirect(new URL(redirectTo, req.url));
         } catch (error) {

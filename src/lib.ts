@@ -17,3 +17,13 @@ export async function issueAccessToken<User extends {}>(ctx: AuthContext<any, Us
         maxAge: persist ? 604800 : 0
     });
 }
+
+export function readCookies() {
+    return document.cookie.split(';').reduce<{ [key: string]: string }>((cookies, cookie) => {
+        const [key, value] = cookie.split('=');
+
+        if (key && value) cookies[decodeURIComponent(key.trim())] = decodeURIComponent(value.trim());
+
+        return cookies;
+    }, {});
+}
