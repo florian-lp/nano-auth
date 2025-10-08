@@ -118,7 +118,7 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
 
     return {
         signOut,
-        revalidate,
+        revalidate: () => revalidate(ctx),
         getUser: cache(() => getUser(ctx)),
         signInWith: (client: P, options?: {
             persist?: boolean;
