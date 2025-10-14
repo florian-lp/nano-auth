@@ -5,7 +5,8 @@ import crypto from 'crypto';
 import { cache } from "react";
 import { cookies } from 'next/headers';
 import { redirect } from "next/navigation";
-import { issueAccessToken } from "./lib";
+import { isDevEnvironment, issueAccessToken } from "./lib";
+import { ErrorCode } from "./error";
 
 export type AuthContext<P extends SupportedOAuthProviders, User extends {}> = {
     secretkey: Uint8Array<ArrayBuffer>;
@@ -14,10 +15,16 @@ export type AuthContext<P extends SupportedOAuthProviders, User extends {}> = {
         [key in P]: OAuthClient;
     };
     retrieveUser: (id: string) => Promise<{
-        user: User | null,
-        error?: string;
+        user: User | null;
+        error?: ErrorCode;
     }>;
-    createUser: (oAuthUser: OAuthUser) => Promise<User>;
+    createUser: (oAuthUser: OAuthUser) => Promise<{
+        user: User;
+        error?: undefined;
+    } | {
+        user?: undefined;
+        error: ErrorCode;
+    }>;
     dev: {
         enabled: boolean;
         user: User;
@@ -31,7 +38,7 @@ export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthCon
     redirectTo?: string;
     persist?: boolean;
 } = {}) {
-    if (ctx.dev.enabled) {
+    if (ctx.dev.enabled && isDevEnvironment()) {
         return redirect(ctx.endpointUri.replace(/^(https?:\/\/)?.+?(\/)/, '/'));
     }
 
@@ -89,9 +96,15 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
     };
     retrieveUser: (id: string) => Promise<{
         user: User | null;
-        error?: string;
+        error?: ErrorCode;
     }>;
-    createUser: (oAuthUser: OAuthUser) => Promise<User>;
+    createUser: (oAuthUser: OAuthUser) => Promise<{
+        user: User;
+        error?: undefined;
+    } | {
+        user?: undefined;
+        error: ErrorCode;
+    }>;
     dev?: {
         enabled: boolean;
         user: User;

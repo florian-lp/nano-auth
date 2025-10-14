@@ -27,3 +27,5 @@ export function readCookies() {
         return cookies;
     }, {});
 }
+
+export const isDevEnvironment = () => process.env.NODE_ENV === 'development';

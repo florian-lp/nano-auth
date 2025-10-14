@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { AuthContext } from "./server";
-import { issueAccessToken } from "./lib";
+import { isDevEnvironment, issueAccessToken } from "./lib";
 
 export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string) {
 
@@ -13,9 +13,9 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
         const state = searchParams.get('state');
 
         try {
-            if (ctx.dev.enabled) {
+            if (ctx.dev.enabled && isDevEnvironment()) {
                 await issueAccessToken(ctx, ctx.dev.user);
-                
+
                 return Response.redirect(new URL('/', req.url));
             }
 
@@ -29,14 +29,17 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
             const oAuthUser = await getUser(access_token);
             if (!oAuthUser) throw 'Could not fetch oAuth user data';
 
-            const { user, error } = await ctx.retrieveUser(oAuthUser.id);
+            let { user, error } = await ctx.retrieveUser(oAuthUser.id);
             if (error) throw error;
 
             if (!user) {
-                await ctx.createUser(oAuthUser);
-            } else {
-                await issueAccessToken(ctx, user, persist === 'true');
+                const created = await ctx.createUser(oAuthUser);
+                if (created.error) throw created.error;
+
+                user = created.user;
             }
+            
+            await issueAccessToken(ctx, user, persist === 'true');
 
             set('nano-last-used', client, {
                 maxAge: 15552000
@@ -44,7 +47,7 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
 
             return Response.redirect(new URL(redirectTo, req.url));
         } catch (error) {
-            if (typeof error !== 'string') error = 'An unexpected error occured';
+            if (typeof error !== 'string') error = 'GE001';
 
             return Response.redirect(new URL(`${errorUri}?error=${error}`, req.url));
         }
