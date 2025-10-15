@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { isDevEnvironment, issueAccessToken } from "./lib";
 import { ErrorCode } from "./error";
 
-export type AuthContext<P extends SupportedOAuthProviders, User extends {}> = {
+export type AuthContext<P extends SupportedOAuthProviders, User extends { id: any; }> = {
     secretkey: Uint8Array<ArrayBuffer>;
     endpointUri: string;
     oAuthClients: {
@@ -59,7 +59,7 @@ export async function signOut(redirectTo = '/') {
     redirect(redirectTo);
 }
 
-export async function getUser<User extends {}>(ctx: AuthContext<any, User>) {
+export async function getUser<User extends { id: any; }>(ctx: AuthContext<any, User>) {
     const { get } = await cookies();
     const accessToken = get('nano-access-token')?.value;
     if (!accessToken) return null;
@@ -73,21 +73,28 @@ export async function getUser<User extends {}>(ctx: AuthContext<any, User>) {
     }
 }
 
-export async function revalidate<User extends {}>(ctx: AuthContext<any, User>) {
-    const user = await getUser(ctx);
+export async function revalidate<User extends { id: any; }>(ctx: AuthContext<any, User>) {
+    const { get, delete: del } = await cookies();
+    const accessToken = get('nano-access-token')?.value;
 
-    if (user) {
-        await issueAccessToken(ctx, user);
-    } else {
-        const { delete: del } = await cookies();
+    try {
+        if (!accessToken) throw 0;
 
+        const { payload, protectedHeader } = await jwtVerify<User>(accessToken, ctx.secretkey);
+        const { user } = await ctx.retrieveUser(payload.id);
+        if (!user) throw 0;
+
+        await issueAccessToken(ctx, user, protectedHeader.persist as boolean);
+
+        return user;
+    } catch {
         del('nano-access-token');
-    }
 
-    return user;
+        return null;
+    }
 }
 
-export function createAuthInterface<P extends SupportedOAuthProviders, User extends {}>({ secretKey, endpointUri, errorUri, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
+export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUri, errorUri, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
     secretKey: string;
     endpointUri: string;
     errorUri: string;
