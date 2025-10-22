@@ -1,6 +1,6 @@
 {
 	"name": "nano-auth",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"type": "module",
 	"description": "",
 	"main": "dist/index.js",
@@ -27,7 +27,14 @@
 	"bugs": "https://github.com/infinityfx-llc/nano-auth/issues",
 	"homepage": "https://github.com/infinityfx-llc/nano-auth",
 	"funding": "https://ko-fi.com/infinityfx",
-	"keywords": [],
+	"keywords": [
+		"auth",
+		"oauth",
+		"jwt",
+		"react",
+		"nextjs",
+		"typescript"
+	],
 	"scripts": {
 		"build": "rollup -c --environment NODE_ENV:production",
 		"watch": "rollup -c -w"

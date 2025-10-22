@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { AuthContext } from "./server";
 import { isDevEnvironment, issueAccessToken } from "./lib";
 
-export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string) {
+export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string) {
 
     return async (req: Request) => {
         const { get, set } = await cookies();
@@ -29,7 +29,8 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
             const oAuthUser = await getUser(access_token);
             if (!oAuthUser) throw 'Could not fetch oAuth user data';
 
-            let { user, error } = await ctx.retrieveUser(oAuthUser.id);
+            let { user, error } = await ctx.retrieveUser(oAuthUser.id),
+                url = new URL(redirectTo, req.url);
             if (error) throw error;
 
             if (!user) {
@@ -37,19 +38,20 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUri: string)
                 if (created.error) throw created.error;
 
                 user = created.user;
+                if (ctx.onboardUrl) url = new URL(ctx.onboardUrl, req.url);
             }
-            
+
             await issueAccessToken(ctx, user, persist === 'true');
 
             set('nano-last-used', client, {
                 maxAge: 15552000
             });
 
-            return Response.redirect(new URL(redirectTo, req.url));
+            return Response.redirect(url);
         } catch (error) {
             if (typeof error !== 'string') error = 'GE001';
 
-            return Response.redirect(new URL(`${errorUri}?error=${error}`, req.url));
+            return Response.redirect(new URL(`${errorUrl}?error=${error}`, req.url));
         }
     }
 }

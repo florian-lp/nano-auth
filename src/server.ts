@@ -10,7 +10,8 @@ import { ErrorCode } from "./error";
 
 export type AuthContext<P extends SupportedOAuthProviders, User extends { id: any; }> = {
     secretkey: Uint8Array<ArrayBuffer>;
-    endpointUri: string;
+    endpointUrl: string;
+    onboardUrl?: string;
     oAuthClients: {
         [key in P]: OAuthClient;
     };
@@ -39,7 +40,7 @@ export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthCon
     persist?: boolean;
 } = {}) {
     if (ctx.dev.enabled && isDevEnvironment()) {
-        return redirect(ctx.endpointUri.replace(/^(https?:\/\/)?.+?(\/)/, '/'));
+        return redirect(ctx.endpointUrl.replace(/^(https?:\/\/)?.+?(\/)/, '/'));
     }
 
     const { set } = await cookies();
@@ -52,7 +53,14 @@ export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthCon
     redirect(ctx.oAuthClients[client].grant(state));
 }
 
-export async function signOut(redirectTo = '/') {
+export async function signOut(
+    /**
+     * Relative URL to redirect to after signing out.
+     * 
+     * @default /
+     */
+    redirectTo = '/'
+) {
     const { delete: del } = await cookies();
     del('nano-access-token');
 
@@ -94,17 +102,42 @@ export async function revalidate<User extends { id: any; }>(ctx: AuthContext<any
     }
 }
 
-export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUri, errorUri, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
+export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUrl, errorUrl, onboardUrl, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
+    /**
+     * JWT signing secret.
+     */
     secretKey: string;
-    endpointUri: string;
-    errorUri: string;
+    /**
+     * Absolute URL to redirect to after OAuth authorization.
+     */
+    endpointUrl: string;
+    /**
+     * Relative URL to redirect to upon failed sign in.
+     */
+    errorUrl: string;
+    /**
+     * Relative URL to redirect to upon succesful sign in of new user.
+     */
+    onboardUrl?: string;
     providers: {
         [key in P]: Omit<OAuthClientConfig, 'redirectUri'>;
     };
+    /**
+     * Should retrieve a user object by their id from your database.
+     * 
+     * @returns
+     * The user or an {@link ErrorCode}.
+     */
     retrieveUser: (id: string) => Promise<{
         user: User | null;
         error?: ErrorCode;
     }>;
+    /**
+     * Should create a new user in your database.
+     * 
+     * @returns
+     * The created user or an {@link ErrorCode}.
+     */
     createUser: (oAuthUser: OAuthUser) => Promise<{
         user: User;
         error?: undefined;
@@ -122,7 +155,8 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
 }) {
     const ctx: AuthContext<P, User> = {
         secretkey: new TextEncoder().encode(secretKey),
-        endpointUri,
+        endpointUrl,
+        onboardUrl,
         oAuthClients: {} as any,
         retrieveUser,
         createUser,
@@ -132,7 +166,7 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
     for (const provider in providers) {
         ctx.oAuthClients[provider] = supportedOAuthProviders[provider as P]({
             ...providers[provider as P],
-            redirectUri: endpointUri
+            redirectUri: endpointUrl
         });
     }
 
@@ -141,9 +175,26 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         revalidate: () => revalidate(ctx),
         getUser: cache(() => getUser(ctx)),
         signInWith: (client: P, options?: {
-            persist?: boolean;
+            /**
+             * Relative URL to redirect to upon succesful sign in.
+             * 
+             * @default /
+             */
             redirectTo?: string;
+            /**
+             * Whether to persist users' access token after they end their session (close their browser).
+             * 
+             * Persisted access tokens will be stored for a maximum of 7 days.
+             * 
+             * @default true
+             */
+            persist?: boolean;
         }) => signInWith(ctx, client, options),
-        authEndpoint: createAuthEndpoint(ctx, errorUri)
+        /**
+         * Route handler function which should be exported as a POST request handler from a route.(ts|js) file.
+         * 
+         * The URL for the route handler should match your configured endpointUrl.
+         */
+        authEndpoint: createAuthEndpoint(ctx, errorUrl)
     };
 }
