@@ -37,7 +37,7 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
                 const created = await ctx.createUser(oAuthUser);
                 if (created.error) throw created.error;
 
-                user = created.user;
+                ctx.onNewUser?.(user = created.user);
                 if (ctx.onboardUrl) url = new URL(ctx.onboardUrl, req.url);
             }
 

@@ -26,12 +26,13 @@ export type AuthContext<P extends SupportedOAuthProviders, User extends { id: an
         user?: undefined;
         error: ErrorCode;
     }>;
+    onNewUser?: (user: User) => Promise<void> | void;
     dev: {
         enabled: boolean;
         user: User;
     } | {
         enabled: false;
-        user: null;
+        user?: any;
     };
 };
 
@@ -102,7 +103,7 @@ export async function revalidate<User extends { id: any; }>(ctx: AuthContext<any
     }
 }
 
-export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUrl, errorUrl, onboardUrl, providers, retrieveUser, createUser, dev = { enabled: false, user: null } }: {
+export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUrl, errorUrl, onboardUrl, providers, retrieveUser, createUser, onNewUser, dev = { enabled: false } }: {
     /**
      * JWT signing secret.
      */
@@ -145,12 +146,16 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         user?: undefined;
         error: ErrorCode;
     }>;
+    /**
+     * Callback which gets trigged when a new user first signs up.
+     */
+    onNewUser?: (user: User) => Promise<void> | void;
     dev?: {
         enabled: boolean;
         user: User;
     } | {
         enabled: false;
-        user: null;
+        user?: any;
     };
 }) {
     const ctx: AuthContext<P, User> = {
@@ -160,6 +165,7 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         oAuthClients: {} as any,
         retrieveUser,
         createUser,
+        onNewUser,
         dev
     };
 

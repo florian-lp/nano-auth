@@ -7,6 +7,10 @@ const defaultErrors = {
         code: 'AE002' as const,
         text: 'User is suspended'
     },
+    blacklisted: {
+        code: 'AE003' as const,
+        text: 'User does not have access'
+    },
     unexpected: {
         code: 'GE001' as const,
         text: 'An unexpected error occured'
