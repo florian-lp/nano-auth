@@ -3,7 +3,9 @@
 A super lightweight auth library for NextJS.
 
 Currently supports the following OAuth providers:
+- Apple
 - Discord
+- Facebook
 - GitHub
 - Google
 - Microsoft
@@ -22,12 +24,16 @@ import { createAuthInterface } from 'nano-auth';
 
 const auth = createAuthInterface({
     secretKey: process.env.SECRET,
-    endpointUri: 'https://mywebsite.com/authenticate',
-    errorUri: '/sign-in',
+    endpointUrl: 'https://mywebsite.com/authenticate',
+    errorUrl: '/sign-in',
     providers: {
         google: {
             clientId: '..',
             secret: process.env.GOOGLE_SECRET
+        },
+        apple: {
+            clientId: '..',
+            secret: process.env.APPLE_CLIENT_SECRET // Signed ES256 JWT generated using .p8 key file
         }
     },
     async retrieveUser(id: string) {
@@ -46,4 +52,6 @@ export const { authEndpoint, .. } = auth;
 import { authEndpoint } from "@/lib/auth";
 
 export const GET = authEndpoint;
+
+export const POST = authEndpoint; // Only required if you support Apple as a provider
 ```

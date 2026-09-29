@@ -8,15 +8,22 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
         const { get, set } = await cookies();
         const stateFromCookie = get('nano-state')?.value;
 
-        const { searchParams } = new URL(req.url);
-        const code = searchParams.get('code');
-        const state = searchParams.get('state');
-
         try {
+            const { searchParams } = new URL(req.url);
+            let code = searchParams.get('code');
+            let state = searchParams.get('state');
+
+            if (req.method === 'POST') {
+                const formData = await req.formData();
+
+                code = formData.get('code') as string || code;
+                state = formData.get('state') as string || state;
+            }
+
             if (ctx.dev.enabled && isDevEnvironment()) {
                 await issueAccessToken(ctx, ctx.dev.user);
 
-                return Response.redirect(new URL('/', req.url));
+                return Response.redirect(new URL('/', req.url), 303);
             }
 
             if (!code || state !== stateFromCookie) throw 'OAuth state mismatch';
@@ -47,11 +54,11 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
                 maxAge: 15552000
             });
 
-            return Response.redirect(url);
+            return Response.redirect(url, 303);
         } catch (error) {
             if (typeof error !== 'string') error = 'GE001';
 
-            return Response.redirect(new URL(`${errorUrl}?error=${error}`, req.url));
+            return Response.redirect(new URL(`${errorUrl}?error=${error}`, req.url), 303);
         }
     }
 }

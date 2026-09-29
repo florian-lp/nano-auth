@@ -2,7 +2,7 @@ import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { AuthContext } from "./server";
 
-export async function issueAccessToken<User extends { id: any; }>(ctx: AuthContext<any, User>, user: User, persist = true) {
+export async function issueAccessToken<User extends { id: any; }>(ctx: AuthContext<User, any>, user: User, persist = true) {
     const { set } = await cookies();
 
     const accessToken = await new SignJWT(user)

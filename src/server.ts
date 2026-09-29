@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { isDevEnvironment, issueAccessToken } from "./lib";
 import { ErrorCode } from "./error";
 
-export type AuthContext<P extends SupportedOAuthProviders, User extends { id: any; }> = {
+export type AuthContext<User extends { id: any; }, P extends SupportedOAuthProviders> = {
     secretkey: Uint8Array<ArrayBuffer>;
     endpointUrl: string;
     onboardUrl?: string;
@@ -36,7 +36,7 @@ export type AuthContext<P extends SupportedOAuthProviders, User extends { id: an
     };
 };
 
-export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<T, any>, client: T, { redirectTo = '/', persist = true }: {
+export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthContext<any, T>, client: T, { redirectTo = '/', persist = true }: {
     redirectTo?: string;
     persist?: boolean;
 } = {}) {
@@ -48,7 +48,9 @@ export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthCon
     const state = `${Buffer.from(`${client}:${persist}:${redirectTo}`, 'utf8').toString('hex')}.${crypto.randomBytes(16).toString('hex')}`;
 
     set('nano-state', state, {
-        httpOnly: true
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none'
     });
 
     redirect(ctx.oAuthClients[client].grant(state));
@@ -68,7 +70,7 @@ export async function signOut(
     redirect(redirectTo);
 }
 
-export async function getUser<User extends { id: any; }>(ctx: AuthContext<any, User>) {
+export async function getUser<User extends { id: any; }>(ctx: AuthContext<User, any>) {
     const { get } = await cookies();
     const accessToken = get('nano-access-token')?.value;
     if (!accessToken) return null;
@@ -82,7 +84,7 @@ export async function getUser<User extends { id: any; }>(ctx: AuthContext<any, U
     }
 }
 
-export async function revalidate<User extends { id: any; }>(ctx: AuthContext<any, User>) {
+export async function revalidate<User extends { id: any; }>(ctx: AuthContext<User, any>) {
     const { get, delete: del } = await cookies();
     const accessToken = get('nano-access-token')?.value;
 
@@ -158,7 +160,7 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         user?: any;
     };
 }) {
-    const ctx: AuthContext<P, User> = {
+    const ctx: AuthContext<User, P> = {
         secretkey: new TextEncoder().encode(secretKey),
         endpointUrl,
         onboardUrl,
