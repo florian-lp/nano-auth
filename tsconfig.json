@@ -5,6 +5,7 @@
     "jsx": "react-jsx",
     "module": "esnext",
     "sourceMap": true,
+    "rootDir": "src",
     "outDir": "dist",
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
@@ -16,7 +17,7 @@
     "declarationDir": "dist/types",
     "emitDeclarationOnly": true,
     "removeComments": false,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "isolatedModules": true
   },
   "exclude": [

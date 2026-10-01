@@ -11,6 +11,14 @@ const defaultErrors = {
         code: 'AE003' as const,
         text: 'User does not have access'
     },
+    invalid: {
+        code: 'AE004' as const,
+        text: 'User could not be authenticated'
+    },
+    expired: {
+        code: 'IE001' as const,
+        text: 'One-time link has expired'
+    },
     unexpected: {
         code: 'GE001' as const,
         text: 'An unexpected error occured'
@@ -21,30 +29,27 @@ type AuthError = keyof typeof defaultErrors;
 
 export type ErrorCode = (typeof defaultErrors)[AuthError]["code"];
 
-export class AuthErrors {
+export function AuthErrors(errors?: {
+    [key in AuthError]: string;
+}) {
+    const map = { ...defaultErrors };
 
-    errors = defaultErrors;
-
-    constructor(errors?: {
-        [key in AuthError]: string;
-    }) {
-        if (!errors) return;
-
+    if (errors) {
         for (const name in errors) {
-            this.errors[name as AuthError].text = errors[name as AuthError];
+            map[name as AuthError].text = errors[name as AuthError];
         }
     }
 
-    toString(code: ErrorCode) {
-        for (const error of Object.values(this.errors)) {
-            if (error.code === code) return error.text;
+    return {
+        toString(code: ErrorCode) {
+            for (const error of Object.values(map)) {
+                if (error.code === code) return error.text;
+            }
+
+            return map.unexpected.text;
+        },
+        code(error: AuthError) {
+            return map[error].code;
         }
-
-        return this.errors.unexpected.text;
-    }
-
-    code(error: AuthError) {
-        return this.errors[error].code;
-    }
-
+    };
 }

@@ -14,3 +14,5 @@ export function useLastUsed() {
 
     return lastUsed;
 }
+
+export { AuthErrors } from './error';

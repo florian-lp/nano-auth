@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import { AuthContext } from "./server";
 import { isDevEnvironment, issueAccessToken } from "./lib";
+import { AuthErrors } from "./error";
 
 export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string) {
+    const errors = AuthErrors();
 
     return async (req: Request) => {
         const { get, set } = await cookies();
@@ -27,7 +29,7 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
             }
 
             const isEmailLink = state === 'email';
-            if (!code || (!isEmailLink && state !== stateFromCookie)) throw 'OAuth state mismatch';
+            if (!code || (!isEmailLink && state !== stateFromCookie)) throw errors.code('invalid');
 
             let [client, persist, redirectTo] = isEmailLink ?
                 ['email'] :
@@ -35,10 +37,11 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
 
             const { authenticate, getUser } = ctx.oAuthClients[client];
             const { access_token } = await authenticate(code);
-            if (!access_token) throw 'Could not authenticate oAuth user';
+            if (!access_token && isEmailLink) throw errors.code('expired');
+            if (!access_token) throw errors.code('invalid');
 
             const oAuthUser = await getUser(access_token);
-            if (!oAuthUser) throw 'Could not fetch oAuth user data';
+            if (!oAuthUser) throw errors.code('invalid');
 
             if (isEmailLink) {
                 const payload = JSON.parse(access_token);

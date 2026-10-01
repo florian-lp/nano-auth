@@ -102,9 +102,13 @@ export const emailLinkProvider = ({ secret, redirectUri }: Omit<OAuthClientConfi
         async authenticate(code: string): Promise<{
             access_token?: string;
         }> {
-            const { payload } = await jwtVerify(code, key);
+            try {
+                const { payload } = await jwtVerify(code, key);
 
-            return { access_token: JSON.stringify(payload) };
+                return { access_token: JSON.stringify(payload) };
+            } catch {
+                return {};
+            }
         },
         async getUser(access_token: string) {
             const { email } = JSON.parse(access_token);
