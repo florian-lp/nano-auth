@@ -1,4 +1,4 @@
-import { decodeJwt } from "jose";
+import { decodeJwt, jwtVerify, SignJWT } from "jose";
 
 export type OAuthClientConfig = {
     clientId: string;
@@ -14,7 +14,7 @@ export type OAuthUser = {
 }
 
 export type OAuthClient = {
-    grant(state: string): string;
+    grant(state: string): Promise<string>;
     authenticate(code: string): Promise<{ access_token?: string; }>;
     getUser(accessToken: string): Promise<OAuthUser | null>;
 }
@@ -33,7 +33,7 @@ export function createOAuthProvider(
     if (postResponse) grantUrl.searchParams.append('response_mode', 'form_post');
 
     return ({ clientId, secret, redirectUri }: OAuthClientConfig): OAuthClient => ({
-        grant(state: string) {
+        async grant(state: string) {
             grantUrl.searchParams.set('client_id', clientId);
             grantUrl.searchParams.set('state', state);
             grantUrl.searchParams.set('redirect_uri', redirectUri);
@@ -82,6 +82,41 @@ export function createOAuthProvider(
             }
         }
     });
+}
+
+export const emailLinkProvider = ({ secret, redirectUri }: Omit<OAuthClientConfig, 'clientId'>): OAuthClient => {
+    const key = new TextEncoder().encode(secret);
+
+    return {
+        async grant(data: string) {
+            const [email, persist, redirectTo] = data.split(':');
+
+            const code = await new SignJWT({ email, redirectTo, persist })
+                .setProtectedHeader({ alg: 'HS256' })
+                .setIssuedAt()
+                .setExpirationTime('10m')
+                .sign(key);
+
+            return `${redirectUri}?code=${code}&state=email`;
+        },
+        async authenticate(code: string): Promise<{
+            access_token?: string;
+        }> {
+            const { payload } = await jwtVerify(code, key);
+
+            return { access_token: JSON.stringify(payload) };
+        },
+        async getUser(access_token: string) {
+            const { email } = JSON.parse(access_token);
+
+            return {
+                id: `email-${Buffer.from(email, 'utf8').toString('hex')}`,
+                fullName: email.replace(/@.+$/, ''),
+                email,
+                verified: true
+            };
+        }
+    };
 }
 
 export const supportedOAuthProviders = {
@@ -182,7 +217,8 @@ export const supportedOAuthProviders = {
                 verified: true
             };
         }
-    )
+    ),
+    email: emailLinkProvider
 }
 
-export type SupportedOAuthProviders = keyof typeof supportedOAuthProviders;
+export type SupportedOAuthProviders = Exclude<keyof typeof supportedOAuthProviders, 'email'>;

@@ -14,7 +14,10 @@ export type AuthContext<User extends { id: any; }, P extends SupportedOAuthProvi
     onboardUrl?: string;
     oAuthClients: {
         [key in P]: OAuthClient;
+    } & {
+        email?: OAuthClient;
     };
+    onEmailLink?: (email: string, link: string) => Promise<void>;
     retrieveUser: (id: string) => Promise<{
         user: User | null;
         error?: ErrorCode;
@@ -53,7 +56,20 @@ export async function signInWith<T extends SupportedOAuthProviders>(ctx: AuthCon
         sameSite: 'none'
     });
 
-    redirect(ctx.oAuthClients[client].grant(state));
+    const url = await ctx.oAuthClients[client].grant(state);
+
+    redirect(url);
+}
+
+export async function sendEmailLink(ctx: AuthContext<any, any>, email: string, { redirectTo = '/', persist = true }: {
+    redirectTo?: string;
+    persist?: boolean;
+} = {}) {
+    if (!ctx.onEmailLink) return;
+
+    const link = await ctx.oAuthClients.email!.grant(`${email}:${persist}:${redirectTo}`);
+
+    await ctx.onEmailLink(email, link);
 }
 
 export async function signOut(
@@ -105,7 +121,7 @@ export async function revalidate<User extends { id: any; }>(ctx: AuthContext<Use
     }
 }
 
-export function createAuthInterface<P extends SupportedOAuthProviders, User extends { id: any; }>({ secretKey, endpointUrl, errorUrl, onboardUrl, providers, retrieveUser, createUser, onNewUser, dev = { enabled: false } }: {
+export function createAuthInterface<User extends { id: any; }, P extends SupportedOAuthProviders>({ secretKey, endpointUrl, errorUrl, onboardUrl, providers, onEmailLink, retrieveUser, createUser, onNewUser, dev = { enabled: false } }: {
     /**
      * JWT signing secret.
      */
@@ -125,6 +141,10 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
     providers: {
         [key in P]: Omit<OAuthClientConfig, 'redirectUri'>;
     };
+    /**
+     * Should send an email to user requesting sign in via a one-time email link.
+     */
+    onEmailLink?: (email: string, link: string) => Promise<void>;
     /**
      * Should retrieve a user object by their id from your database.
      * 
@@ -165,6 +185,7 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
         endpointUrl,
         onboardUrl,
         oAuthClients: {} as any,
+        onEmailLink,
         retrieveUser,
         createUser,
         onNewUser,
@@ -174,6 +195,13 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
     for (const provider in providers) {
         ctx.oAuthClients[provider] = supportedOAuthProviders[provider as P]({
             ...providers[provider as P],
+            redirectUri: endpointUrl
+        }) as any;
+    }
+
+    if (onEmailLink) {
+        ctx.oAuthClients.email = supportedOAuthProviders.email({
+            secret: secretKey,
             redirectUri: endpointUrl
         });
     }
@@ -198,6 +226,27 @@ export function createAuthInterface<P extends SupportedOAuthProviders, User exte
              */
             persist?: boolean;
         }) => signInWith(ctx, client, options),
+        /**
+         * Request sign in via a one-time email link.
+         * 
+         * Requires `onEmailLink` to be set.
+         */
+        sendEmailLink: (email: string, options?: {
+            /**
+             * Relative URL to redirect to upon succesful sign in.
+             * 
+             * @default /
+             */
+            redirectTo?: string;
+            /**
+             * Whether to persist users' access token after they end their session (close their browser).
+             * 
+             * Persisted access tokens will be stored for a maximum of 7 days.
+             * 
+             * @default true
+             */
+            persist?: boolean;
+        }) => sendEmailLink(ctx, email, options),
         /**
          * Route handler function which should be exported as a POST request handler from a route.(ts|js) file.
          * 

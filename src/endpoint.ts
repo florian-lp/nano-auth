@@ -26,9 +26,13 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
                 return Response.redirect(new URL('/', req.url), 303);
             }
 
-            if (!code || state !== stateFromCookie) throw 'OAuth state mismatch';
+            const isEmailLink = state === 'email';
+            if (!code || (!isEmailLink && state !== stateFromCookie)) throw 'OAuth state mismatch';
 
-            const [client, persist, redirectTo] = Buffer.from(state.split('.')[0], 'hex').toString('utf8').split(/:/);
+            let [client, persist, redirectTo] = isEmailLink ?
+                ['email'] :
+                Buffer.from(state!.split('.')[0], 'hex').toString('utf8').split(/:/);
+
             const { authenticate, getUser } = ctx.oAuthClients[client];
             const { access_token } = await authenticate(code);
             if (!access_token) throw 'Could not authenticate oAuth user';
@@ -36,9 +40,18 @@ export function createAuthEndpoint(ctx: AuthContext<any, any>, errorUrl: string)
             const oAuthUser = await getUser(access_token);
             if (!oAuthUser) throw 'Could not fetch oAuth user data';
 
-            let { user, error } = await ctx.retrieveUser(oAuthUser.id),
-                url = new URL(redirectTo, req.url);
+            if (isEmailLink) {
+                const payload = JSON.parse(access_token);
+
+                persist = payload.persist;
+                redirectTo = payload.redirectTo;
+            }
+
+            let { user, error } = await ctx.retrieveUser(oAuthUser.id);
             if (error) throw error;
+
+            let url = new URL(redirectTo, req.url);
+            url = new URL(url.pathname + url.search + url.hash, req.url);
 
             if (!user) {
                 const created = await ctx.createUser(oAuthUser);
